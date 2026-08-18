@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Github, Loader2 } from 'lucide-react';
+import { GitPullRequest, Loader2, Sun, Moon } from 'lucide-react';
 import { loginStart, loginSuccess, loginFailure } from '../store/authSlice';
+import { useTheme } from '../contexts/ThemeContext';
 import axios from 'axios';
 
 export default function Login() {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     // Check if OAuth code is in URL
@@ -21,8 +23,7 @@ export default function Login() {
   const handleCallback = async (code) => {
     dispatch(loginStart());
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-      const response = await axios.post(`${backendUrl}/api/auth/github`, { code });
+      const response = await axios.post('http://localhost:5000/api/auth/github', { code });
       dispatch(loginSuccess(response.data));
       // Remove OAuth code query param
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -32,48 +33,117 @@ export default function Login() {
   };
 
   const handleLogin = () => {
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+    // Replace with your GitHub OAuth App Client ID
+    const clientId = 'your_github_oauth_client_id_here';
     const redirectUri = window.location.origin;
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 relative overflow-hidden">
-      {/* Decorative gradient blur */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center px-4 relative"
+      style={{ backgroundColor: 'var(--color-canvas-subtle)' }}
+    >
+      {/* Theme toggle in top right */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 p-2 rounded-md transition-colors"
+        style={{ color: 'var(--color-fg-muted)' }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-canvas-default)'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      >
+        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+      </button>
 
-      <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex p-4 bg-indigo-500/10 rounded-2xl text-indigo-400 mb-4 border border-indigo-500/20">
-            <Github size={40} />
+      {/* Login card */}
+      <div 
+        className="w-full max-w-sm rounded-github border p-8"
+        style={{ 
+          backgroundColor: 'var(--color-canvas-default)',
+          borderColor: 'var(--color-border-default)',
+          boxShadow: '0 0 transparent, 0 0 transparent, 0 1px 3px rgba(31, 35, 40, 0.12)'
+        }}
+      >
+        {/* Logo and title */}
+        <div className="text-center mb-6">
+          <div 
+            className="inline-flex p-3 rounded-md mb-3"
+            style={{ backgroundColor: 'var(--color-accent-subtle)' }}
+          >
+            <GitPullRequest size={32} style={{ color: 'var(--color-accent-fg)' }} />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">AI PR Review Bot</h1>
-          <p className="text-slate-400 text-sm mt-2">
-            Automated Gemini Code Reviews on Pull Requests
+          <h1 
+            className="text-2xl font-semibold mb-2"
+            style={{ color: 'var(--color-fg-default)' }}
+          >
+            AI PR Review Bot
+          </h1>
+          <p 
+            className="text-sm"
+            style={{ color: 'var(--color-fg-muted)' }}
+          >
+            Automated code reviews powered by Gemini AI
           </p>
         </div>
 
+        {/* Error message */}
         {error && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl mb-6 text-sm text-rose-400 text-center">
+          <div 
+            className="p-3 rounded-github mb-4 text-sm border"
+            style={{ 
+              backgroundColor: 'var(--color-danger-subtle)',
+              borderColor: 'var(--color-danger-fg)',
+              color: 'var(--color-danger-fg)'
+            }}
+          >
             {error}
           </div>
         )}
 
+        {/* Sign in button */}
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl font-semibold flex items-center justify-center gap-3 transition-colors shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+          className="w-full py-2 px-4 rounded-github text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
+          style={{
+            backgroundColor: 'rgb(31, 111, 235)',
+            color: '#ffffff',
+            borderColor: 'rgba(31, 35, 40, 0.15)'
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) e.currentTarget.style.backgroundColor = 'rgb(9, 105, 218)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgb(31, 111, 235)';
+          }}
         >
           {loading ? (
-            <Loader2 className="animate-spin" size={20} />
+            <Loader2 className="animate-spin" size={16} />
           ) : (
             <>
-              <Github size={20} />
+              <GitPullRequest size={16} />
               Sign in with GitHub
             </>
           )}
         </button>
+
+        {/* Info text */}
+        <p 
+          className="text-xs text-center mt-4"
+          style={{ color: 'var(--color-fg-subtle)' }}
+        >
+          By signing in, you agree to install the GitHub App on your repositories
+        </p>
       </div>
+
+      {/* Footer */}
+      <p 
+        className="text-xs mt-8"
+        style={{ color: 'var(--color-fg-subtle)' }}
+      >
+        Powered by Google Gemini AI
+      </p>
     </div>
   );
 }

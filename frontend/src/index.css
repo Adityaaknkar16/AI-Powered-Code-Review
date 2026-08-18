@@ -1,20 +1,104 @@
 @import "tailwindcss";
 
-body {
-  margin: 0;
-  background-color: #FAFAFA;
-  color: #18181B;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* GitHub-style theme variables */
+:root {
+  /* Light mode (GitHub default) */
+  --color-canvas-default: rgb(255, 255, 255);
+  --color-canvas-subtle: rgb(246, 248, 250);
+  --color-canvas-inset: rgb(255, 255, 255);
+  --color-border-default: rgb(208, 215, 222);
+  --color-border-muted: rgb(216, 222, 228);
+  --color-fg-default: rgb(31, 35, 40);
+  --color-fg-muted: rgb(87, 96, 106);
+  --color-fg-subtle: rgb(110, 118, 129);
+  --color-accent-fg: rgb(9, 105, 218);
+  --color-accent-emphasis: rgb(31, 111, 235);
+  --color-accent-muted: rgba(84, 174, 255, 0.4);
+  --color-accent-subtle: rgb(221, 244, 255);
+  --color-success-fg: rgb(26, 127, 55);
+  --color-attention-fg: rgb(154, 103, 0);
+  --color-danger-fg: rgb(207, 34, 46);
+  --color-danger-emphasis: rgb(218, 54, 51);
+  --color-danger-subtle: rgb(255, 235, 233);
 }
 
-/* Base link styles to match accent blue color */
+.dark {
+  /* Dark mode (GitHub Dimmed) */
+  --color-canvas-default: rgb(34, 39, 46);
+  --color-canvas-subtle: rgb(28, 33, 40);
+  --color-canvas-inset: rgb(28, 33, 40);
+  --color-border-default: rgb(68, 76, 86);
+  --color-border-muted: rgb(56, 63, 73);
+  --color-fg-default: rgb(205, 217, 229);
+  --color-fg-muted: rgb(139, 148, 158);
+  --color-fg-subtle: rgb(110, 118, 129);
+  --color-accent-fg: rgb(88, 166, 255);
+  --color-accent-emphasis: rgb(52, 125, 216);
+  --color-accent-muted: rgba(65, 132, 228, 0.4);
+  --color-accent-subtle: rgba(56, 139, 253, 0.15);
+  --color-success-fg: rgb(87, 171, 90);
+  --color-attention-fg: rgb(212, 167, 44);
+  --color-danger-fg: rgb(248, 81, 73);
+  --color-danger-emphasis: rgb(229, 83, 75);
+  --color-danger-subtle: rgba(248, 81, 73, 0.15);
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+/* GitHub-style links */
 a {
-  color: #2563EB;
+  color: var(--color-accent-fg);
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+}
+
+/* GitHub-style scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-canvas-default);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-muted);
+}
+
+/* GitHub button styles */
+.btn-primary {
+  color: #ffffff;
+  background-color: rgb(31, 111, 235);
+  border: 1px solid rgba(31, 35, 40, 0.15);
+  box-shadow: 0 1px 0 rgba(31, 35, 40, 0.04);
+}
+
+.btn-primary:hover {
+  background-color: rgb(9, 105, 218);
+}
+
+.dark .btn-primary {
+  background-color: rgb(52, 125, 216);
+}
+
+.dark .btn-primary:hover {
+  background-color: rgb(64, 131, 219);
 }

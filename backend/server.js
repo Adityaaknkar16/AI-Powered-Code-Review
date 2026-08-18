@@ -66,6 +66,45 @@ function authenticateToken(req, res, next) {
 }
 
 /**
+ * Helper: serialize a Review document to a consistent frontend shape
+ */
+function serializeReview(review) {
+  const repo = review.repoId;
+  const stats = review.summaryStats || {};
+  const high = stats.highCount || 0;
+  const medium = stats.mediumCount || 0;
+  const low = stats.lowCount || 0;
+
+  let issueSummary = '0 issues';
+  const parts = [];
+  if (high > 0) parts.push(`${high} high`);
+  if (medium > 0) parts.push(`${medium} medium`);
+  if (low > 0) parts.push(`${low} low`);
+  if (parts.length > 0) issueSummary = parts.join(', ');
+
+  return {
+    id: review._id,
+    _id: review._id,
+    pullNumber: review.pullNumber,
+    title: review.prTitle,
+    prTitle: review.prTitle,
+    prUrl: review.prUrl,
+    date: review.createdAt ? review.createdAt.toISOString().slice(0, 10) : '',
+    sender: review.sender,
+    commitSha: review.commitSha,
+    status: review.status,
+    issueSummary,
+    summaryStats: review.summaryStats,
+    issuesCount: high + medium + low,
+    comments: review.comments || [],
+    turnaroundTimeMs: review.turnaroundTimeMs,
+    repoId: repo ? { _id: repo._id, name: repo.name } : null,
+    repoName: repo ? repo.name : null,
+    createdAt: review.createdAt,
+  };
+}
+
+/**
  * 1. GITHUB APP WEBHOOK RECEIVER
  */
 app.post('/api/webhooks/github', verifyWebhookSignature, async (req, res) => {
@@ -77,11 +116,41 @@ app.post('/api/webhooks/github', verifyWebhookSignature, async (req, res) => {
   }
 
   const eventName = req.headers['x-github-event'];
-  
+
+  // Handle installation event — link repos to the installing user
+  if (eventName === 'installation' && payload.action === 'created') {
+    // Try to find a user matching the installer's GitHub ID
+    const installerId = payload.installation.account.id;
+    const installerLogin = payload.installation.account.login;
+    const installationId = payload.installation.id;
+
+    let user = await User.findOne({ githubId: String(installerId) });
+
+    // Register all repos included in this installation
+    if (payload.repositories) {
+      for (const repoInfo of payload.repositories) {
+        const existing = await ConnectedRepo.findOne({ githubRepoId: repoInfo.id });
+        if (!existing) {
+          const newRepo = new ConnectedRepo({
+            githubRepoId: repoInfo.id,
+            name: repoInfo.full_name,
+            owner: installerLogin,
+            installationId,
+            isActive: true,
+            connectedBy: user ? user._id : undefined,
+            settings: { reviewFocus: 'full', minSeverity: 'low', autoApprove: false }
+          });
+          await newRepo.save();
+        }
+      }
+    }
+    return; // already responded 202 below
+  }
+
   // Respond immediately to GitHub to avoid timeout (202 Accepted)
   res.status(202).json({ status: 'Accepted' });
 
-  // Process asynchronously in background
+  // Process PR events asynchronously
   if (eventName === 'pull_request' && (payload.action === 'opened' || payload.action === 'synchronize')) {
     const startTime = Date.now();
     const pullNumber = payload.pull_request.number;
@@ -96,13 +165,15 @@ app.post('/api/webhooks/github', verifyWebhookSignature, async (req, res) => {
 
     let repo = await ConnectedRepo.findOne({ githubRepoId });
     if (!repo) {
-      // Auto-register connected repos if the App is installed on it
+      // Auto-register repo. Try to find an owner by matching the repo owner login.
+      const ownerUser = await User.findOne({ username: repoOwner });
       repo = new ConnectedRepo({
         githubRepoId,
         name: repoName,
         owner: repoOwner,
         installationId,
         isActive: true,
+        connectedBy: ownerUser ? ownerUser._id : undefined,
         settings: { reviewFocus: 'full', minSeverity: 'low', autoApprove: false }
       });
       await repo.save();
@@ -210,15 +281,21 @@ app.post('/api/auth/github', async (req, res) => {
 
     const { id: githubId, login: username, email, avatar_url: avatarUrl } = userRes.data;
 
-    let user = await User.findOne({ githubId });
+    let user = await User.findOne({ githubId: String(githubId) });
     if (!user) {
-      user = new User({ githubId, username, email, avatarUrl, accessToken });
+      user = new User({ githubId: String(githubId), username, email, avatarUrl, accessToken });
     } else {
       user.accessToken = accessToken;
       user.username = username;
       user.avatarUrl = avatarUrl;
     }
     await user.save();
+
+    // If there are repos owned by this user's GitHub login that have no connectedBy, claim them
+    await ConnectedRepo.updateMany(
+      { owner: username, connectedBy: { $exists: false } },
+      { $set: { connectedBy: user._id } }
+    );
 
     // Create JWT
     const token = jwt.sign(
@@ -256,10 +333,47 @@ app.get('/api/repos', authenticateToken, async (req, res) => {
   }
 });
 
+// Manually register a repo by name (for users who installed the App but the webhook
+// auto-registration didn't have their user linked yet)
+app.post('/api/repos', authenticateToken, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.includes('/')) {
+    return res.status(400).json({ error: 'Provide a repo name in "owner/repo" format' });
+  }
+
+  try {
+    const existing = await ConnectedRepo.findOne({ name });
+    if (existing) {
+      // Claim ownership if unclaimed
+      if (!existing.connectedBy) {
+        existing.connectedBy = req.user.id;
+        await existing.save();
+      }
+      return res.json(existing);
+    }
+
+    // Repo not in DB yet (hasn't received a webhook). Create a placeholder.
+    const [owner] = name.split('/');
+    const newRepo = new ConnectedRepo({
+      githubRepoId: Date.now(), // placeholder until webhook sets the real ID
+      name,
+      owner,
+      installationId: 0, // placeholder
+      isActive: true,
+      connectedBy: req.user.id,
+      settings: { reviewFocus: 'full', minSeverity: 'low', autoApprove: false }
+    });
+    await newRepo.save();
+    res.status(201).json(newRepo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.put('/api/repos/:id/settings', authenticateToken, async (req, res) => {
   const { reviewFocus, minSeverity, autoApprove, isActive } = req.body;
   try {
-    const repo = await ConnectedRepo.findById(req.params.id);
+    const repo = await ConnectedRepo.findOne({ _id: req.params.id, connectedBy: req.user.id });
     if (!repo) return res.status(404).json({ error: 'Repo not found' });
 
     if (reviewFocus) repo.settings.reviewFocus = reviewFocus;
@@ -287,7 +401,7 @@ app.get('/api/reviews', authenticateToken, async (req, res) => {
       .populate('repoId')
       .sort({ createdAt: -1 });
 
-    res.json(reviews);
+    res.json(reviews.map(serializeReview));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -297,7 +411,12 @@ app.get('/api/reviews/:id', authenticateToken, async (req, res) => {
   try {
     const review = await Review.findById(req.params.id).populate('repoId');
     if (!review) return res.status(404).json({ error: 'Review not found' });
-    res.json(review);
+
+    // Ownership check — ensure the repo belongs to the requesting user
+    const repo = await ConnectedRepo.findOne({ _id: review.repoId._id, connectedBy: req.user.id });
+    if (!repo) return res.status(403).json({ error: 'Access denied' });
+
+    res.json(serializeReview(review));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -323,14 +442,14 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
       lowCount += r.summaryStats.lowCount || 0;
       mediumCount += r.summaryStats.mediumCount || 0;
       highCount += r.summaryStats.highCount || 0;
-      
+
       if (r.turnaroundTimeMs) {
         totalTurnaround += r.turnaroundTimeMs;
         validTurnaroundCount++;
       }
     });
 
-    const averageTurnaroundTimeSec = validTurnaroundCount > 0 
+    const averageTurnaroundTimeSec = validTurnaroundCount > 0
       ? Math.round((totalTurnaround / validTurnaroundCount) / 1000)
       : 0;
 

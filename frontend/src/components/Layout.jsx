@@ -1,26 +1,118 @@
 import React from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { LogOut, Sun, Moon, GitPullRequest } from 'lucide-react';
+import { logout } from '../store/authSlice';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Layout({ children }) {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const { theme, toggleTheme } = useTheme();
+
   return (
-    <div className="min-h-screen bg-bg flex flex-col font-sans">
-      {/* Top Bar */}
-      <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 md:px-12 sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <span className="text-base font-bold text-text-primary tracking-tight">
-            AI PR Review Bot
-          </span>
-        </div>
-        
-        {/* User Profile Avatar */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-border overflow-hidden flex items-center justify-center text-xs font-semibold text-text-secondary">
-            U
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-canvas-subtle)' }}>
+      {/* GitHub-style header */}
+      <header 
+        className="border-b sticky top-0 z-50"
+        style={{ 
+          backgroundColor: 'var(--color-canvas-default)',
+          borderColor: 'var(--color-border-default)'
+        }}
+      >
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo and title */}
+            <div className="flex items-center gap-4">
+              <Link 
+                to="/" 
+                className="flex items-center gap-2 font-semibold hover:no-underline"
+                style={{ color: 'var(--color-fg-default)' }}
+              >
+                <div 
+                  className="p-1.5 rounded-md"
+                  style={{ backgroundColor: 'var(--color-accent-subtle)' }}
+                >
+                  <GitPullRequest size={20} style={{ color: 'var(--color-accent-fg)' }} />
+                </div>
+                <span className="text-base">AI PR Review Bot</span>
+              </Link>
+            </div>
+
+            {/* Right side: theme toggle, user, logout */}
+            <div className="flex items-center gap-2">
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-md hover:bg-opacity-10 transition-colors"
+                style={{ 
+                  color: 'var(--color-fg-muted)',
+                  backgroundColor: 'transparent'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-canvas-subtle)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                aria-label="Toggle theme"
+              >
+                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+
+              {/* User avatar */}
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.username}
+                  className="w-6 h-6 rounded-full border"
+                  style={{ borderColor: 'var(--color-border-default)' }}
+                />
+              ) : (
+                <div 
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium select-none border"
+                  style={{ 
+                    backgroundColor: 'var(--color-canvas-subtle)',
+                    color: 'var(--color-fg-muted)',
+                    borderColor: 'var(--color-border-default)'
+                  }}
+                >
+                  {user?.username ? user.username[0].toUpperCase() : 'U'}
+                </div>
+              )}
+
+              {/* Username */}
+              {user?.username && (
+                <span 
+                  className="text-sm font-medium hidden sm:block"
+                  style={{ color: 'var(--color-fg-default)' }}
+                >
+                  {user.username}
+                </span>
+              )}
+
+              {/* Logout button */}
+              <button
+                onClick={() => dispatch(logout())}
+                className="p-2 rounded-md transition-colors"
+                style={{ color: 'var(--color-fg-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-canvas-subtle)';
+                  e.currentTarget.style.color = 'var(--color-fg-default)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--color-fg-muted)';
+                }}
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Page Content Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 md:px-12 py-8">
+      {/* Page content */}
+      <main className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>
     </div>

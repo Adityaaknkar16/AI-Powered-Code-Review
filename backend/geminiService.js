@@ -1,18 +1,19 @@
 const { GoogleGenAI } = require('@google/genai');
 
 let ai;
-if (process.env.GEMINI_API_KEY) {
-  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+function getClient() {
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  }
+  return ai;
 }
 
 /**
  * Reviews a set of file patches using Gemini API and returns structured feedback.
  */
 async function analyzeDiffWithGemini(filePatches, focusArea = 'full') {
-  if (!ai) {
-    // Fallback if client is not configured
-    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-  }
+  const client = getClient();
 
   const prompt = `
 You are a highly experienced software engineer and code reviewer.
@@ -40,7 +41,7 @@ ${JSON.stringify(filePatches, null, 2)}
 `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
@@ -48,7 +49,8 @@ ${JSON.stringify(filePatches, null, 2)}
       }
     });
 
-    const parsedResponse = JSON.parse(response.text);
+    const text = response.text;
+    const parsedResponse = JSON.parse(text);
     return parsedResponse.reviews || [];
   } catch (error) {
     console.error('Gemini analysis failed:', error);

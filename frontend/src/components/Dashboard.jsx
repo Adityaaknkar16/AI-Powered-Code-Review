@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogOut, Github, Settings, History, BarChart3, AppWindow } from 'lucide-react';
+import { LogOut, Settings, History, AppWindow } from 'lucide-react';
 import axios from 'axios';
 
 import { logout } from '../store/authSlice';
