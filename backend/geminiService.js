@@ -49,7 +49,12 @@ ${JSON.stringify(filePatches, null, 2)}
       }
     });
 
-    const text = response.text;
+    let text = response.text || '';
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    text = text.trim();
+    if (text.startsWith('```')) {
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    }
     const parsedResponse = JSON.parse(text);
     return parsedResponse.reviews || [];
   } catch (error) {
@@ -58,6 +63,20 @@ ${JSON.stringify(filePatches, null, 2)}
   }
 }
 
+/**
+ * Analyzes a raw patch string or text diff directly for playground / testing
+ */
+async function analyzeRawDiff(rawDiff, focusArea = 'full') {
+  const patches = [
+    {
+      filename: 'sample_patch.js',
+      patch: rawDiff
+    }
+  ];
+  return analyzeDiffWithGemini(patches, focusArea);
+}
+
 module.exports = {
   analyzeDiffWithGemini,
+  analyzeRawDiff,
 };

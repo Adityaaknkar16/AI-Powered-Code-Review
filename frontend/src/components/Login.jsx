@@ -1,14 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { GitPullRequest, Loader2, Sun, Moon } from 'lucide-react';
+import { GitPullRequest, Loader2, Sun, Moon, Terminal, ShieldCheck } from 'lucide-react';
 import { loginStart, loginSuccess, loginFailure } from '../store/authSlice';
 import { useTheme } from '../contexts/ThemeContext';
 import axios from 'axios';
+
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function Login() {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
   const { theme, toggleTheme } = useTheme();
+  const [devUsername, setDevUsername] = useState('aditya');
+  const [showDevLogin, setShowDevLogin] = useState(false);
 
   useEffect(() => {
     // Check if OAuth code is in URL
@@ -23,20 +27,30 @@ export default function Login() {
   const handleCallback = async (code) => {
     dispatch(loginStart());
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/github', { code });
+      const response = await axios.post(`${backendUrl}/api/auth/github`, { code });
       dispatch(loginSuccess(response.data));
-      // Remove OAuth code query param
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
-      dispatch(loginFailure(err.response?.data?.error || 'OAuth Failed'));
+      dispatch(loginFailure(err.response?.data?.error || 'OAuth Authentication Failed'));
     }
   };
 
   const handleLogin = () => {
-    // Replace with your GitHub OAuth App Client ID
-    const clientId = 'your_github_oauth_client_id_here';
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || 'your_github_oauth_client_id_here';
     const redirectUri = window.location.origin;
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
+  };
+
+  const handleDevLogin = async (e) => {
+    e.preventDefault();
+    if (!devUsername.trim()) return;
+    dispatch(loginStart());
+    try {
+      const res = await axios.post(`${backendUrl}/api/auth/dev-login`, { username: devUsername.trim() });
+      dispatch(loginSuccess(res.data));
+    } catch (err) {
+      dispatch(loginFailure(err.response?.data?.error || 'Failed connecting to live backend server'));
+    }
   };
 
   return (
@@ -58,11 +72,10 @@ export default function Login() {
 
       {/* Login card */}
       <div 
-        className="w-full max-w-sm rounded-github border p-8"
+        className="w-full max-w-sm rounded-github border p-8 shadow-github"
         style={{ 
           backgroundColor: 'var(--color-canvas-default)',
-          borderColor: 'var(--color-border-default)',
-          boxShadow: '0 0 transparent, 0 0 transparent, 0 1px 3px rgba(31, 35, 40, 0.12)'
+          borderColor: 'var(--color-border-default)'
         }}
       >
         {/* Logo and title */}
@@ -83,14 +96,14 @@ export default function Login() {
             className="text-sm"
             style={{ color: 'var(--color-fg-muted)' }}
           >
-            Automated code reviews powered by Gemini AI
+            Real-time live automated reviews with Gemini AI
           </p>
         </div>
 
         {/* Error message */}
         {error && (
           <div 
-            className="p-3 rounded-github mb-4 text-sm border"
+            className="p-3 rounded-github mb-4 text-xs border"
             style={{ 
               backgroundColor: 'var(--color-danger-subtle)',
               borderColor: 'var(--color-danger-fg)',
@@ -101,39 +114,71 @@ export default function Login() {
           </div>
         )}
 
-        {/* Sign in button */}
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full py-2 px-4 rounded-github text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
-          style={{
-            backgroundColor: 'rgb(31, 111, 235)',
-            color: '#ffffff',
-            borderColor: 'rgba(31, 35, 40, 0.15)'
-          }}
-          onMouseEnter={(e) => {
-            if (!loading) e.currentTarget.style.backgroundColor = 'rgb(9, 105, 218)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgb(31, 111, 235)';
-          }}
-        >
-          {loading ? (
-            <Loader2 className="animate-spin" size={16} />
-          ) : (
-            <>
-              <GitPullRequest size={16} />
-              Sign in with GitHub
-            </>
-          )}
-        </button>
+        {/* Real Live GitHub OAuth Button */}
+        <div className="space-y-3">
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full py-2 px-4 rounded-github text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
+            style={{
+              backgroundColor: 'rgb(31, 111, 235)',
+              color: '#ffffff',
+              borderColor: 'rgba(31, 35, 40, 0.15)'
+            }}
+          >
+            {loading ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <>
+                <GitPullRequest size={16} />
+                Sign in with GitHub
+              </>
+            )}
+          </button>
+
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
+            <span className="flex-shrink mx-2 text-xs" style={{ color: 'var(--color-fg-subtle)' }}>or live session</span>
+            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
+          </div>
+
+          {/* Real Backend Session Sign-in */}
+          <form onSubmit={handleDevLogin} className="space-y-2">
+            <input
+              type="text"
+              placeholder="Enter username (e.g. aditya)"
+              value={devUsername}
+              onChange={(e) => setDevUsername(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-github border outline-none font-mono"
+              style={{
+                backgroundColor: 'var(--color-canvas-subtle)',
+                borderColor: 'var(--color-border-default)',
+                color: 'var(--color-fg-default)'
+              }}
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-1.5 px-3 rounded-github text-xs font-semibold flex items-center justify-center gap-1.5 border transition-colors"
+              style={{
+                backgroundColor: 'var(--color-canvas-subtle)',
+                borderColor: 'var(--color-border-default)',
+                color: 'var(--color-fg-default)'
+              }}
+            >
+              <ShieldCheck size={14} style={{ color: 'var(--color-success-fg)' }} />
+              Live Server Sign In
+            </button>
+          </form>
+        </div>
 
         {/* Info text */}
         <p 
           className="text-xs text-center mt-4"
           style={{ color: 'var(--color-fg-subtle)' }}
         >
-          By signing in, you agree to install the GitHub App on your repositories
+          Connected to live MongoDB database & Gemini 2.0 Flash AI
         </p>
       </div>
 
@@ -142,8 +187,9 @@ export default function Login() {
         className="text-xs mt-8"
         style={{ color: 'var(--color-fg-subtle)' }}
       >
-        Powered by Google Gemini AI
+        Google Gemini 2.0 Flash Code Reviewer
       </p>
     </div>
   );
 }
+

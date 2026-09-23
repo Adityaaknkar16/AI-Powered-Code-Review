@@ -10,7 +10,7 @@ import RepoList from './pages/RepoList';
 import ReviewList from './pages/ReviewList';
 import ReviewDetail from './pages/ReviewDetail';
 
-const backendUrl = 'http://localhost:5000';
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 function AppRoutes() {
   return (
@@ -31,47 +31,30 @@ function AppRoutes() {
 export default function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, token } = useSelector((state) => state.auth);
-  
-  // Check if we're in mock mode
-  const USE_MOCK = true; // Should match the value in api.js
 
-  // On mount, if in mock mode, auto-login with a mock user
   useEffect(() => {
-    if (USE_MOCK && !isAuthenticated) {
-      // Auto-login with mock user
-      dispatch(loginSuccess({ 
-        token: 'mock_token', 
-        user: { 
-          username: 'demo-user', 
-          avatarUrl: null,
-          email: 'demo@example.com' 
-        }
-      }));
-      return;
-    }
-
-    if (token && !isAuthenticated) {
-      dispatch(loginSuccess({ token, user: null }));
-    }
-
-    if (token && !USE_MOCK) {
+    if (token) {
       axios
         .get(`${backendUrl}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((res) => {
           dispatch(setUser(res.data));
+          if (!isAuthenticated) {
+            dispatch(loginSuccess({ token, user: res.data }));
+          }
         })
         .catch(() => {
           // Token is invalid/expired — force logout
           dispatch(logout());
         });
     }
-  }, []);
+  }, [token]);
 
-  if (!isAuthenticated && !USE_MOCK) {
+  if (!isAuthenticated) {
     return <Login />;
   }
 
   return <AppRoutes />;
 }
+

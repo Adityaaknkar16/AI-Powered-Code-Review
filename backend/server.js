@@ -8,7 +8,7 @@ const axios = require('axios');
 
 const { User, ConnectedRepo, Review } = require('./models');
 const { getInstallationOctokit, fetchPullRequestDiff, postReviewComments } = require('./githubService');
-const { analyzeDiffWithGemini } = require('./geminiService');
+const { analyzeDiffWithGemini, analyzeRawDiff } = require('./geminiService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -311,6 +311,36 @@ app.post('/api/auth/github', async (req, res) => {
   }
 });
 
+/**
+ * Direct Developer Login (creates real MongoDB user & JWT for instant live testing)
+ */
+app.post('/api/auth/dev-login', async (req, res) => {
+  const { username = 'developer' } = req.body;
+  try {
+    let user = await User.findOne({ username });
+    if (!user) {
+      user = new User({
+        githubId: String(Date.now()),
+        username,
+        email: `${username}@example.com`,
+        avatarUrl: `https://avatars.githubusercontent.com/u/${Math.floor(1000000 + Math.random() * 9000000)}?v=4`,
+        accessToken: 'dev_token_live'
+      });
+      await user.save();
+    }
+
+    const token = jwt.sign(
+      { id: user._id, githubId: user.githubId, username: user.username },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, user: { username: user.username, avatarUrl: user.avatarUrl, email: user.email } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -383,6 +413,151 @@ app.put('/api/repos/:id/settings', authenticateToken, async (req, res) => {
 
     await repo.save();
     res.json(repo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/repos/:id', authenticateToken, async (req, res) => {
+  try {
+    const repo = await ConnectedRepo.findOneAndDelete({ _id: req.params.id, connectedBy: req.user.id });
+    if (!repo) return res.status(404).json({ error: 'Repo not found or unauthorized' });
+    // Optionally clean up associated reviews
+    await Review.deleteMany({ repoId: repo._id });
+    res.json({ message: 'Repository disconnected successfully', repoId: req.params.id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 3.5. PLAYGROUND & TEST DIFF ANALYSIS
+ */
+app.post('/api/reviews/test-diff', authenticateToken, async (req, res) => {
+  const { diff, focusArea = 'full' } = req.body;
+  if (!diff || typeof diff !== 'string') {
+    return res.status(400).json({ error: 'Diff string is required' });
+  }
+
+  const startTime = Date.now();
+  try {
+    const reviews = await analyzeRawDiff(diff, focusArea);
+    const lowCount = reviews.filter(c => c.severity === 'low').length;
+    const mediumCount = reviews.filter(c => c.severity === 'medium').length;
+    const highCount = reviews.filter(c => c.severity === 'high').length;
+
+    res.json({
+      reviews,
+      summaryStats: {
+        highCount,
+        mediumCount,
+        lowCount,
+        filesReviewed: new Set(reviews.map(r => r.file)).size
+      },
+      turnaroundTimeMs: Date.now() - startTime
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 3.6. SIMULATE A PR REVIEW FOR TESTING
+ */
+app.post('/api/repos/:id/reviews/simulate', authenticateToken, async (req, res) => {
+  try {
+    const repo = await ConnectedRepo.findOne({ _id: req.params.id, connectedBy: req.user.id });
+    if (!repo) return res.status(404).json({ error: 'Repo not found' });
+
+    const pullNumber = Math.floor(1000 + Math.random() * 9000);
+    const mockTitles = [
+      'Refactor authentication middleware with token rotation',
+      'Optimize query planner indices for high-throughput reads',
+      'Patch cross-site request validation in webhook parser',
+      'Add exponential backoff retry handler to API client',
+      'Update async concurrency limits in batch processor'
+    ];
+    const prTitle = mockTitles[Math.floor(Math.random() * mockTitles.length)];
+    const commitSha = Math.random().toString(16).substring(2, 9);
+    const startTime = Date.now();
+
+    // Representative diff patch for live analysis
+    const samplePatches = [
+      {
+        filename: 'src/auth/jwtService.js',
+        patch: `--- a/src/auth/jwtService.js
++++ b/src/auth/jwtService.js
+@@ -40,6 +40,8 @@
+ function verifySignature(token, secret) {
++  const [header, payload, signature] = token.split('.');
++  if (signature === computeHmac(header + '.' + payload, secret)) return true;
+   return false;
+ }`
+      },
+      {
+        filename: 'src/database/queryBuilder.js',
+        patch: `--- a/src/database/queryBuilder.js
++++ b/src/database/queryBuilder.js
+@@ -85,6 +85,8 @@
+ function buildWhereClause(filters) {
++  const rawClauses = Object.entries(filters).map(([k, v]) => \`\${k} = '\${v}'\`);
++  return rawClauses.join(' AND ');
+ }`
+      }
+    ];
+
+    let aiReviews = [];
+    try {
+      aiReviews = await analyzeDiffWithGemini(samplePatches, repo.settings?.reviewFocus || 'full');
+    } catch (e) {
+      console.warn('Gemini live analysis fallback:', e.message);
+    }
+
+    if (!aiReviews || aiReviews.length === 0) {
+      aiReviews = [
+        {
+          file: 'src/auth/jwtService.js',
+          line: 42,
+          severity: 'high',
+          comment: 'Timing attack vulnerability in signature verification. Use `crypto.timingSafeEqual` instead of string equality (`===`).'
+        },
+        {
+          file: 'src/database/queryBuilder.js',
+          line: 87,
+          severity: 'high',
+          comment: 'Potential SQL Injection via string interpolation in WHERE clause builder. Use parameterized queries.'
+        }
+      ];
+    }
+
+    const severityWeights = { low: 1, medium: 2, high: 3 };
+    const minSeverityWeight = severityWeights[repo.settings?.minSeverity] || 1;
+    const filteredReviews = aiReviews.filter(r => (severityWeights[r.severity] || 1) >= minSeverityWeight);
+
+    const lowCount = filteredReviews.filter(c => c.severity === 'low').length;
+    const mediumCount = filteredReviews.filter(c => c.severity === 'medium').length;
+    const highCount = filteredReviews.filter(c => c.severity === 'high').length;
+
+    const newReview = new Review({
+      repoId: repo._id,
+      pullNumber,
+      commitSha,
+      prTitle,
+      prUrl: `https://github.com/${repo.name}/pull/${pullNumber}`,
+      sender: req.user.username || 'developer',
+      status: 'completed',
+      summaryStats: {
+        lowCount,
+        mediumCount,
+        highCount,
+        filesReviewed: new Set(filteredReviews.map(r => r.file)).size
+      },
+      comments: filteredReviews,
+      turnaroundTimeMs: Date.now() - startTime
+    });
+
+    await newReview.save();
+    res.status(201).json(serializeReview(await Review.findById(newReview._id).populate('repoId')));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

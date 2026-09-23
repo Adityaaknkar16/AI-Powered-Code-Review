@@ -79,9 +79,10 @@ function IssuesDisplay({ review }) {
   return <span className="text-xs" style={{ color: 'var(--color-fg-muted)' }}>{summary}</span>;
 }
 
-export default function ReviewRow({ review, repoName }) {
+export default function ReviewRow({ review, repoName, showRepoBadge = false }) {
   const navigate = useNavigate();
-  const encodedRepo = encodeURIComponent(repoName);
+  const effectiveRepo = repoName || review.repoName || review.repoId?.name || 'repo';
+  const encodedRepo = encodeURIComponent(effectiveRepo);
   const reviewId = review._id || review.id;
   const title = review.title || review.prTitle;
 
@@ -93,6 +94,19 @@ export default function ReviewRow({ review, repoName }) {
       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-canvas-subtle)'}
       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
     >
+      {showRepoBadge && (
+        <td className="py-3 px-4 text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--color-fg-muted)' }}>
+          <span 
+            className="px-2 py-0.5 rounded-full border font-mono"
+            style={{
+              backgroundColor: 'var(--color-canvas-subtle)',
+              borderColor: 'var(--color-border-default)'
+            }}
+          >
+            {effectiveRepo}
+          </span>
+        </td>
+      )}
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
           <GitPullRequest 
@@ -107,11 +121,16 @@ export default function ReviewRow({ review, repoName }) {
             #{review.pullNumber}
           </span>
           <span 
-            className="font-medium"
+            className="font-medium hover:underline"
             style={{ color: 'var(--color-fg-default)' }}
           >
             {title}
           </span>
+          {review.sender && (
+            <span className="text-xs text-slate-400 hidden md:inline">
+              by @{review.sender}
+            </span>
+          )}
         </div>
       </td>
       <td 
@@ -126,3 +145,4 @@ export default function ReviewRow({ review, repoName }) {
     </tr>
   );
 }
+

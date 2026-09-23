@@ -6,7 +6,11 @@ const jwt = require('jsonwebtoken');
  */
 function generateAppJwt() {
   const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n');
+  const rawKey = process.env.GITHUB_PRIVATE_KEY || '';
+  if (!appId || !rawKey) {
+    throw new Error('GitHub App credentials (GITHUB_APP_ID or GITHUB_PRIVATE_KEY) are not configured.');
+  }
+  const privateKey = rawKey.replace(/\\n/g, '\n');
 
   const payload = {
     iat: Math.floor(Date.now() / 1000) - 60, // Issued 60 seconds ago
