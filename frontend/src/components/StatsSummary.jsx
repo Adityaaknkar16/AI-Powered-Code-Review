@@ -82,7 +82,7 @@ export default function StatsSummary({ stats, totalRepos = 0 }) {
           </div>
         </div>
         <p className="text-2xl font-bold mt-2" style={{ color: 'var(--color-fg-default)' }}>
-          {stats.averageTurnaroundTimeSec || 12}s
+          {stats.averageTurnaroundTimeSec || 0}s
         </p>
         <p className="text-xs mt-1" style={{ color: 'var(--color-fg-subtle)' }}>
           Fast analysis & response

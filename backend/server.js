@@ -13,14 +13,31 @@ const { analyzeDiffWithGemini, analyzeRawDiff } = require('./geminiService');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/ai_pr_bot')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// MongoDB Connection with timeout protection
+const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/ai_pr_bot';
+mongoose.connect(mongoUri, {
+  serverSelectionTimeoutMS: 4000,
+})
+  .then(() => console.log(`✓ Connected to MongoDB: ${mongoUri.replace(/\/\/.*@/, '//***@')}`))
+  .catch(err => {
+    console.warn('⚠️  MongoDB connection warning:', err.message);
+    console.warn('ℹ️  Tip: If you do not have local MongoDB installed, you can use a free cloud MongoDB Atlas URI in backend/.env:');
+    console.warn('    MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/ai_pr_bot?retryWrites=true&w=majority');
+  });
 
-// CORS Configuration
+// CORS Configuration - Supports multiple frontend ports (5173 for Vite, 3000 for CRA/Next)
+const configuredOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(u => u.trim())
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || configuredOrigins.includes(origin) || configuredOrigins.includes('*') || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
 
@@ -329,6 +346,21 @@ app.post('/api/auth/dev-login', async (req, res) => {
       await user.save();
     }
 
+    // Ensure user has at least one connected repository for an instant seamless dashboard experience
+    const existingRepoCount = await ConnectedRepo.countDocuments({ connectedBy: user._id });
+    if (existingRepoCount === 0) {
+      const defaultRepo = new ConnectedRepo({
+        githubRepoId: Date.now(),
+        name: `${user.username}/AI-Powered-Code-Review`,
+        owner: user.username,
+        installationId: 0,
+        isActive: true,
+        connectedBy: user._id,
+        settings: { reviewFocus: 'full', minSeverity: 'low', autoApprove: false }
+      });
+      await defaultRepo.save();
+    }
+
     const token = jwt.sign(
       { id: user._id, githubId: user.githubId, username: user.username },
       process.env.JWT_SECRET || 'fallback_secret',
@@ -510,24 +542,12 @@ app.post('/api/repos/:id/reviews/simulate', authenticateToken, async (req, res) 
     try {
       aiReviews = await analyzeDiffWithGemini(samplePatches, repo.settings?.reviewFocus || 'full');
     } catch (e) {
-      console.warn('Gemini live analysis fallback:', e.message);
+      console.warn('Gemini live analysis error:', e.message);
+      aiReviews = [];
     }
 
-    if (!aiReviews || aiReviews.length === 0) {
-      aiReviews = [
-        {
-          file: 'src/auth/jwtService.js',
-          line: 42,
-          severity: 'high',
-          comment: 'Timing attack vulnerability in signature verification. Use `crypto.timingSafeEqual` instead of string equality (`===`).'
-        },
-        {
-          file: 'src/database/queryBuilder.js',
-          line: 87,
-          severity: 'high',
-          comment: 'Potential SQL Injection via string interpolation in WHERE clause builder. Use parameterized queries.'
-        }
-      ];
+    if (!Array.isArray(aiReviews)) {
+      aiReviews = [];
     }
 
     const severityWeights = { low: 1, medium: 2, high: 3 };

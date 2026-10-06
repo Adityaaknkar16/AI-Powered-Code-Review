@@ -11,7 +11,7 @@ export default function Login() {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
   const { theme, toggleTheme } = useTheme();
-  const [devUsername, setDevUsername] = useState('aditya');
+  const [devUsername, setDevUsername] = useState('');
   const [showDevLogin, setShowDevLogin] = useState(false);
 
   useEffect(() => {
@@ -36,17 +36,22 @@ export default function Login() {
   };
 
   const handleLogin = () => {
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || 'your_github_oauth_client_id_here';
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+    if (!clientId || clientId === 'your_github_oauth_client_id_here') {
+      dispatch(loginFailure('GitHub OAuth requires setting VITE_GITHUB_CLIENT_ID in frontend/.env. Use the Live Server Sign In form below to start immediately!'));
+      return;
+    }
     const redirectUri = window.location.origin;
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
   };
 
   const handleDevLogin = async (e) => {
     e.preventDefault();
-    if (!devUsername.trim()) return;
+    const username = (devUsername || 'Adityaaknkar16').trim();
+    if (!username) return;
     dispatch(loginStart());
     try {
-      const res = await axios.post(`${backendUrl}/api/auth/dev-login`, { username: devUsername.trim() });
+      const res = await axios.post(`${backendUrl}/api/auth/dev-login`, { username });
       dispatch(loginSuccess(res.data));
     } catch (err) {
       dispatch(loginFailure(err.response?.data?.error || 'Failed connecting to live backend server'));
@@ -96,7 +101,7 @@ export default function Login() {
             className="text-sm"
             style={{ color: 'var(--color-fg-muted)' }}
           >
-            Real-time live automated reviews with Gemini AI
+            Real-time automated reviews with Gemini 2.0 Flash AI
           </p>
         </div>
 
@@ -114,63 +119,66 @@ export default function Login() {
           </div>
         )}
 
-        {/* Real Live GitHub OAuth Button */}
-        <div className="space-y-3">
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full py-2 px-4 rounded-github text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
-            style={{
-              backgroundColor: 'rgb(31, 111, 235)',
-              color: '#ffffff',
-              borderColor: 'rgba(31, 35, 40, 0.15)'
-            }}
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" size={16} />
-            ) : (
-              <>
-                <GitPullRequest size={16} />
-                Sign in with GitHub
-              </>
-            )}
-          </button>
-
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
-            <span className="flex-shrink mx-2 text-xs" style={{ color: 'var(--color-fg-subtle)' }}>or live session</span>
-            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
-          </div>
-
-          {/* Real Backend Session Sign-in */}
-          <form onSubmit={handleDevLogin} className="space-y-2">
+        <div className="space-y-4">
+          {/* Primary: Real Backend Session Sign-in */}
+          <form onSubmit={handleDevLogin} className="space-y-2.5">
+            <label className="block text-xs font-medium" style={{ color: 'var(--color-fg-default)' }}>
+              Enter GitHub Username
+            </label>
             <input
               type="text"
-              placeholder="Enter username (e.g. aditya)"
+              placeholder="e.g. Adityaaknkar16"
               value={devUsername}
               onChange={(e) => setDevUsername(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs rounded-github border outline-none font-mono"
+              className="w-full px-3 py-2 text-xs rounded-github border outline-none font-mono"
               style={{
                 backgroundColor: 'var(--color-canvas-subtle)',
                 borderColor: 'var(--color-border-default)',
                 color: 'var(--color-fg-default)'
               }}
               required
+              autoFocus
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-1.5 px-3 rounded-github text-xs font-semibold flex items-center justify-center gap-1.5 border transition-colors"
+              className="w-full py-2 px-3 rounded-github text-xs font-semibold text-white flex items-center justify-center gap-1.5 border transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--color-canvas-subtle)',
-                borderColor: 'var(--color-border-default)',
-                color: 'var(--color-fg-default)'
+                backgroundColor: 'rgb(31, 111, 235)',
+                borderColor: 'rgba(31, 35, 40, 0.15)'
               }}
             >
-              <ShieldCheck size={14} style={{ color: 'var(--color-success-fg)' }} />
-              Live Server Sign In
+              {loading ? (
+                <Loader2 className="animate-spin" size={14} />
+              ) : (
+                <>
+                  <ShieldCheck size={14} />
+                  Sign In to Live Dashboard
+                </>
+              )}
             </button>
           </form>
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
+            <span className="flex-shrink mx-2 text-xs" style={{ color: 'var(--color-fg-subtle)' }}>or GitHub App OAuth</span>
+            <div className="flex-grow border-t" style={{ borderColor: 'var(--color-border-default)' }}></div>
+          </div>
+
+          {/* Optional GitHub OAuth */}
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full py-1.5 px-3 rounded-github text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 border"
+            style={{
+              backgroundColor: 'var(--color-canvas-subtle)',
+              borderColor: 'var(--color-border-default)',
+              color: 'var(--color-fg-default)'
+            }}
+          >
+            <GitPullRequest size={14} />
+            Sign in with GitHub OAuth
+          </button>
         </div>
 
         {/* Info text */}
@@ -178,7 +186,7 @@ export default function Login() {
           className="text-xs text-center mt-4"
           style={{ color: 'var(--color-fg-subtle)' }}
         >
-          Connected to live MongoDB database & Gemini 2.0 Flash AI
+          Connected to MongoDB Atlas & Gemini 2.0 Flash AI
         </p>
       </div>
 

@@ -3,74 +3,17 @@ import {
   Sparkles, 
   Play, 
   FileCode, 
-  ShieldAlert, 
-  AlertTriangle, 
-  Info, 
-  CheckCircle2, 
-  Loader2, 
   RotateCcw, 
   Copy, 
   Check,
   Zap,
-  Shield,
-  Cpu,
-  FileText,
-  AlertOctagon
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { testDiffAnalysis } from '../api';
 
-const SAMPLE_DIFFS = [
-  {
-    id: 'sql_injection',
-    title: 'SQL Injection Vulnerability',
-    category: 'security',
-    icon: <AlertOctagon size={14} className="text-rose-500" />,
-    diff: `--- a/src/services/userService.js
-+++ b/src/services/userService.js
-@@ -14,6 +14,8 @@
- async function findUserByQuery(rawInput) {
-+  // Constructing raw query from user input
-+  const query = "SELECT * FROM users WHERE username = '" + rawInput + "'";
-+  const result = await db.raw(query);
-+  return result;
- }`
-  },
-  {
-    id: 'memory_leak',
-    title: 'Event Listener Memory Leak',
-    category: 'performance',
-    icon: <Zap size={14} className="text-amber-500" />,
-    diff: `--- a/src/components/DataStream.jsx
-+++ b/src/components/DataStream.jsx
-@@ -10,6 +10,8 @@
- useEffect(() => {
-+  const handler = (event) => setStreamData(event.detail);
-+  window.addEventListener('socket-broadcast', handler);
-+  // Missing cleanup return function
- }, []);`
-  },
-  {
-    id: 'clean_refactor',
-    title: 'Clean TypeScript Refactoring',
-    category: 'style',
-    icon: <CheckCircle2 size={14} className="text-emerald-500" />,
-    diff: `--- a/src/utils/math.ts
-+++ b/src/utils/math.ts
-@@ -1,5 +1,8 @@
--export function calculateDiscount(price, rate) {
--  return price - price * rate;
-+export interface DiscountCalculationOptions {
-+  price: number;
-+  rate: number;
- }
-+export function calculateDiscount({ price, rate }: DiscountCalculationOptions): number {
-+  return Math.max(0, price - price * rate);
-+}`
-  }
- ];
-
 export default function Playground() {
-  const [diffText, setDiffText] = useState(SAMPLE_DIFFS[0].diff);
+  const [diffText, setDiffText] = useState('');
   const [focusArea, setFocusArea] = useState('full');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -89,12 +32,6 @@ export default function Playground() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadSample = (sample) => {
-    setDiffText(sample.diff);
-    setResult(null);
-    setError(null);
   };
 
   const handleCopyReport = () => {
@@ -121,7 +58,7 @@ export default function Playground() {
             Interactive AI Review Playground
           </h2>
           <p className="text-xs mt-1" style={{ color: 'var(--color-fg-muted)' }}>
-            Test Gemini's code review intelligence on raw Git patches, PR diffs, or vulnerability presets.
+            Test Gemini's code review intelligence on raw Git patches and PR diffs.
           </p>
         </div>
 
@@ -146,28 +83,6 @@ export default function Playground() {
             <option value="style">Style & Conventions</option>
           </select>
         </div>
-      </div>
-
-      {/* Preset Diff Buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold" style={{ color: 'var(--color-fg-muted)' }}>
-          Sample Scenarios:
-        </span>
-        {SAMPLE_DIFFS.map((sample) => (
-          <button
-            key={sample.id}
-            onClick={() => loadSample(sample)}
-            className="px-2.5 py-1.5 rounded-github text-xs border font-medium transition-colors flex items-center gap-1.5"
-            style={{
-              backgroundColor: diffText === sample.diff ? 'var(--color-accent-subtle)' : 'var(--color-canvas-default)',
-              borderColor: diffText === sample.diff ? 'var(--color-accent-fg)' : 'var(--color-border-default)',
-              color: diffText === sample.diff ? 'var(--color-accent-fg)' : 'var(--color-fg-default)'
-            }}
-          >
-            {sample.icon}
-            {sample.title}
-          </button>
-        ))}
       </div>
 
       {/* Main Grid: Input & Output */}

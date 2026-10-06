@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables & secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+private-key.pem
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

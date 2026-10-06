@@ -1,12 +1,8 @@
 const { GoogleGenAI } = require('@google/genai');
 
-let ai;
-
 function getClient() {
-  if (!ai) {
-    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-  }
-  return ai;
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  return new GoogleGenAI({ apiKey });
 }
 
 /**
@@ -58,7 +54,10 @@ ${JSON.stringify(filePatches, null, 2)}
     const parsedResponse = JSON.parse(text);
     return parsedResponse.reviews || [];
   } catch (error) {
-    console.error('Gemini analysis failed:', error);
+    console.error('Gemini analysis failed:', error.message || error);
+    if (error.status === 400 || error.message?.includes('API key')) {
+      console.error('Check your GEMINI_API_KEY in backend/.env');
+    }
     return [];
   }
 }

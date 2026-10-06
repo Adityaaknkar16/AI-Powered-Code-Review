@@ -53,8 +53,20 @@ export default function ReviewList() {
   };
 
   const handleSimulate = async () => {
-    if (!repoObj && reviews.length === 0) return;
-    const targetId = repoObj?._id || repoObj?.id || reviews[0]?.repoId?._id || '1';
+    let targetId = repoObj?._id || repoObj?.id || reviews[0]?.repoId?._id;
+    if (!targetId) {
+      try {
+        setIsSimulating(true);
+        const newRepo = await connectRepo(decodedRepoName);
+        setRepoObj(newRepo);
+        targetId = newRepo._id || newRepo.id;
+      } catch (err) {
+        setIsSimulating(false);
+        alert(`Could not connect repository: ${err.message}`);
+        return;
+      }
+    }
+    if (!targetId) return;
     try {
       setIsSimulating(true);
       const newRev = await simulateReview(targetId);
