@@ -95,7 +95,7 @@ export default function Login() {
             className="text-sm"
             style={{ color: 'var(--color-fg-muted)' }}
           >
-            Real-time automated code reviews with Gemini 2.0 Flash AI
+            Real-time automated code reviews with Gemini AI
           </p>
         </div>
 
@@ -160,7 +160,7 @@ export default function Login() {
           className="text-xs text-center mt-5"
           style={{ color: 'var(--color-fg-subtle)' }}
         >
-          Powered by MongoDB Atlas & Gemini 2.0 Flash AI
+          Powered by MongoDB Atlas & Gemini AI
         </p>
       </div>
 
@@ -169,7 +169,7 @@ export default function Login() {
         className="text-xs mt-8"
         style={{ color: 'var(--color-fg-subtle)' }}
       >
-        Google Gemini 2.0 Flash Code Reviewer
+        AI-Powered PR Code Reviewer
       </p>
     </div>
   );
