@@ -84,12 +84,7 @@ export default function Login() {
       >
         {/* Logo and title */}
         <div className="text-center mb-6">
-          <div 
-            className="inline-flex p-3 rounded-md mb-3"
-            style={{ backgroundColor: 'var(--color-accent-subtle)' }}
-          >
-            <GitPullRequest size={32} style={{ color: 'var(--color-accent-fg)' }} />
-          </div>
+          <img src="/favicon.svg" alt="PRPilot Logo" className="w-14 h-14 mx-auto mb-3 drop-shadow-md" />
           <h1 
             className="text-2xl font-semibold mb-2"
             style={{ color: 'var(--color-fg-default)' }}

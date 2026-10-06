@@ -26,16 +26,11 @@ export default function Layout({ children }) {
             <div className="flex items-center gap-4">
               <Link 
                 to="/" 
-                className="flex items-center gap-2 font-semibold hover:no-underline"
+                className="flex items-center gap-2.5 font-semibold hover:no-underline"
                 style={{ color: 'var(--color-fg-default)' }}
               >
-                <div 
-                  className="p-1.5 rounded-md"
-                  style={{ backgroundColor: 'var(--color-accent-subtle)' }}
-                >
-                  <GitPullRequest size={20} style={{ color: 'var(--color-accent-fg)' }} />
-                </div>
-                <span className="text-base">AI PR Review Bot</span>
+                <img src="/favicon.svg" alt="PRPilot Logo" className="w-7 h-7 rounded-md" />
+                <span className="text-base font-bold tracking-tight">AI PR Review Bot</span>
               </Link>
             </div>
 
