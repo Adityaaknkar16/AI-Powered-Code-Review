@@ -95,7 +95,7 @@ export default function Login() {
             className="text-sm"
             style={{ color: 'var(--color-fg-muted)' }}
           >
-            Real-time automated code reviews with Gemini AI
+          
           </p>
         </div>
 
