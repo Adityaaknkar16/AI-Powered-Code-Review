@@ -46,6 +46,20 @@ app.use('/api/webhooks/github', express.raw({ type: 'application/json' }));
 // All other endpoints use json
 app.use(express.json());
 
+// Health check endpoint (for deployment platforms like Render/Railway)
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'AI PR Reviewer API', version: '1.0.0' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    uptime: Math.round(process.uptime()), 
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
 /**
  * Middleware: Verify GitHub Webhook Signature
  */
